@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To Do List Rafa</title>
+    <link rel="stylesheet" href="todo.css">
+    <!-- Pasang Mock API Kampus sebelum skrip aplikasi berjalan -->
+    <script src="https://fuaddary.github.io/Pemrograman-Web/assets/mock-api-kampus.js"></script>
+</head>
+
+<body>
+    <div class="wrapper-all">
+        <header class="container-judul">
+            <h1 class="header-judul">Do Not Make Yourself Suffer!</h1>
+
+            <p class="header-tanggal" id="tanggal-skrg"
+                style="font-size: 16px; font-weight: 500; color: #0a8fd0; margin-top: 10px"></p>
+            <script>
+                document.getElementById('tanggal-skrg').textContent = new Date().toLocaleDateString("id-ID", {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            </script>
+
+        </header>
+
+        <section class="add-filter-tasklist">
+            <form class="add-task" id="id-addTask">
+                <input type="text" id="id-inputTeks" placeholder="Drop ur new task here..." required>
+                <input type="date" id="id-inputTanggal">
+                <button type="submit" id="id-tombolAdd">+ add</button>
+            </form>
+
+            <div class="count-progress-filter">
+                <p class="count-progress" id="id-countProgress">0 dari 0 tugas selesai</p>
+                <div class="filter">
+                    <button type="button" class="filter-btn active" data-filter="all">all (<span
+                            id="countAll">0</span>)</button>
+                    <button type="button" class="filter-btn" data-filter="tugas-belom">belum (<span
+                            id="countBelom">0</span>)</button>
+                    <button type="button" class="filter-btn" data-filter="tugas-udah">sudah (<span
+                            id="countUdah">0</span>)</button>
+                </div>
+            </div>
+
+            <!-- Wadah loading state & error -->
+            <div id="id-statusContainer" class="status-container" hidden>
+                <p id="id-statusTeks" class="status-teks"></p>
+                <button type="button" id="id-tombolUlang" class="tombol-ulang" hidden>Coba lagi</button>
+            </div>
+
+            <ul class="listTugas" id="id-listTugas"></ul>
+
+            <div class="empty-state" id="id-emptyState">
+                <p class="empty-desc">Tugas kosong, yes! Bisa healing</p>
+            </div>
+        </section>
+    </div>
+    <script src="todo.js"></script>
+</body>
+
+</html>
