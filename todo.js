@@ -9,6 +9,10 @@ const countBelom = document.getElementById("countBelom");
 const countUdah = document.getElementById("countUdah");
 const countProgress = document.getElementById("id-countProgress");
 
+const tombolAdd = document.getElementById("id-tombolAdd");
+const pesanForm = document.getElementById("id-pesanForm");
+
+
 // Elemen state baru untuk kebutuhan asinkron (Loading & Error)
 const statusContainer = document.getElementById("id-statusContainer");
 const statusTeks = document.getElementById("id-statusTeks");
@@ -80,14 +84,14 @@ function render() {
     emptyState.style.display = "none";
     listTugas.innerHTML = "";
 
-    // 1. State: LOADING
+    // state loading
     if (state.status === "loading") {
         statusContainer.hidden = false;
         statusTeks.textContent = "Sedang memuat data tugas dari server...";
         return;
     }
 
-    // 2. State: ERROR (+ Tombol Coba Lagi)
+    // state error & tombol coba lagi
     if (state.status === "error") {
         statusContainer.hidden = false;
         statusContainer.classList.add("error");
@@ -96,14 +100,14 @@ function render() {
         return;
     }
 
-    // 3. State sukses tapi kosong
+    // state sukses tapi kosong
     if (state.status === "success" && state.data.length === 0) {
         emptyState.style.display = "";
         updateHitungan();
         return;
     }
 
-    // 4. State sukses & ada data
+    // state sukses & ada data
     if (state.status === "success" && state.data.length > 0) {
         state.data.forEach(function (tugas) {
             if (filterAktif === "tugas-belom" && tugas.selesai) return;
@@ -111,7 +115,7 @@ function render() {
             listTugas.appendChild(buatKartuTugas(tugas));
         });
 
-        // Cek apakah hasil filter kosong
+        // cek apakah hasil filter kosong
         if (listTugas.children.length === 0) {
             emptyState.style.display = "";
         }
@@ -120,7 +124,60 @@ function render() {
     }
 }
 
-// Fungsi ambil data dari Server pakai fetch()
+// Nomor 2: Tambah Tugas Baru via POST /api/tugas
+formTugas.addEventListener("submit", async function (event) {
+    event.preventDefault();
+
+    // 1. Siapkan objek data (gunakan nama 'judul' dan 'deadline' sesuai Mock API)
+    const tugasBaru = {
+        judul: inputTeks.value.trim(),
+        deadline: inputTanggal.value,
+        matkul: "SKPB" // default sementara sampai nomor 5
+    };
+
+    // 2. Nonaktifkan tombol & ubah teks selama mengirim
+    tombolAdd.disabled = true;
+    tombolAdd.textContent = "Mengirim...";
+    pesanForm.hidden = true;
+    pesanForm.textContent = "";
+
+    try {
+        // 3. Request POST dengan method, header Content-Type, dan JSON.stringify(body)
+        const res = await fetch("/api/tugas", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(tugasBaru)
+        });
+
+        const body = await res.json();
+
+        // 4. Jika res.ok (status 201 Created)
+        if (res.ok) {
+            state.data.push(body); // tambahkan tugas baru yang dikembalikan server ke state
+            render();              // render ulang tampilan
+            formTugas.reset();     // kosongkan form input
+        } else {
+            // Jika server menolak (status 400, misal judul < 3 huruf atau tanggal kosong)
+            pesanForm.textContent = body.error || "Gagal menambah tugas";
+            pesanForm.hidden = false;
+        }
+    } catch (err) {
+        // Jika ada masalah koneksi / offline
+        pesanForm.textContent = err instanceof TypeError
+            ? "Gagal mengirim: Tidak dapat terhubung ke server (offline)"
+            : err.message;
+        pesanForm.hidden = false;
+    } finally {
+        // 5. Apa pun hasilnya (sukses/gagal), aktifkan tombol kembali
+        tombolAdd.disabled = false;
+        tombolAdd.textContent = "+ add";
+    }
+});
+
+
+// Soal 1: fungsi ambil data dari server pakai fetch()
 async function ambilTugas() {
     state.status = "loading";
     state.error = null;
@@ -140,7 +197,7 @@ async function ambilTugas() {
         state.data = data;
     } catch (err) {
         state.status = "error";
-        // Bedakan error offline (TypeError) dengan pesan dari server (sesuai notes.md)
+        // Bedain error offline (TypeError) dengan pesan dari server
         state.error = err instanceof TypeError
             ? "Tidak dapat terhubung ke server (offline)"
             : err.message;
@@ -149,12 +206,12 @@ async function ambilTugas() {
     render();
 }
 
-// Event Listener tombol Coba Lagi
+// Soal 1: Event Listener tombol Coba Lagi
 tombolUlang.addEventListener("click", function () {
     ambilTugas();
 });
 
-// Event Listener tombol Filter
+// Soal 1 : Event Listener tombol Filter
 tombolFilter.forEach(function (tombol) {
     tombol.addEventListener("click", function () {
         filterAktif = tombol.dataset.filter;

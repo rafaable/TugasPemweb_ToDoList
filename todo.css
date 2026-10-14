@@ -261,3 +261,16 @@ body {
     font-weight: 600;
     margin-right: 6px;
 }
+
+/* Pesan error ketika submit form */
+.pesan-form {
+    color: #e11d48;
+    background-color: #fff1f2;
+    border: 1px solid #fecdd3;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 10px;
+    text-align: center;
+}
