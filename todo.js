@@ -11,6 +11,7 @@ const countProgress = document.getElementById("id-countProgress");
 
 const tombolAdd = document.getElementById("id-tombolAdd");
 const pesanForm = document.getElementById("id-pesanForm");
+const selectMatkul = document.getElementById("id-selectMatkul");
 
 
 // Elemen state baru untuk kebutuhan asinkron (Loading & Error)
@@ -26,6 +27,7 @@ const tombolFilter = document.querySelectorAll(".filter-btn");
 const state = {
     status: "idle", // 'idle' | 'loading' | 'error' | 'success'
     data: [],
+    matkul: [],
     error: null
 };
 
@@ -149,15 +151,34 @@ async function api(url, options = {}) {
     return await res.json();
 }
 
+// Helper untuk mengisi pilihan mata kuliah ke dropdown <select> (No. 5)
+function isiPilihanMatkul(daftarMatkul) {
+    if (!selectMatkul) return;
+    selectMatkul.innerHTML = `<option value="" disabled selected>Pilih Matkul...</option>`;
+    daftarMatkul.forEach(function (mk) {
+        const opsi = document.createElement("option");
+        opsi.value = mk.nama;
+        opsi.textContent = `${mk.kode} - ${mk.nama}`;
+        selectMatkul.appendChild(opsi);
+    });
+}
+
 // Nomor 2: Tambah Tugas Baru via POST /api/tugas (menggunakan helper api())
 formTugas.addEventListener("submit", async function (event) {
     event.preventDefault();
+
+    const matkulTerpilih = selectMatkul ? selectMatkul.value : "";
+    if (!matkulTerpilih) {
+        pesanForm.textContent = "Silakan pilih mata kuliah terlebih dahulu";
+        pesanForm.hidden = false;
+        return;
+    }
 
     // 1. Siapkan objek data
     const tugasBaru = {
         judul: inputTeks.value.trim(),
         deadline: inputTanggal.value,
-        matkul: "SKPB" // default sementara sampai nomor 5
+        matkul: matkulTerpilih
     };
 
     // 2. Nonaktifkan tombol & ubah teks selama mengirim
@@ -180,6 +201,7 @@ formTugas.addEventListener("submit", async function (event) {
         state.data.push(dataBaru); // tambahkan tugas baru ke state
         render();                  // render ulang tampilan
         formTugas.reset();         // kosongkan form input
+        if (selectMatkul) selectMatkul.selectedIndex = 0;
     } catch (err) {
         // Tangani pesan error dari server (400) atau jika offline
         pesanForm.textContent = err instanceof TypeError
@@ -194,19 +216,28 @@ formTugas.addEventListener("submit", async function (event) {
 });
 
 
-// Soal 1: fungsi ambil data dari server (menggunakan helper api())
+// Soal 1 & 5: Muat data tugas dan mata kuliah secara PARALEL dengan Promise.all
 async function ambilTugas() {
     state.status = "loading";
     state.error = null;
     render();
 
     try {
-        const data = await api("/api/tugas");
+        // Request paralel dengan Promise.all
+        const [dataTugas, dataMatkul] = await Promise.all([
+            api("/api/tugas"),
+            api("/api/matkul")
+        ]);
+
         state.status = "success";
-        state.data = data;
+        state.data = dataTugas;
+        state.matkul = dataMatkul;
+
+        // Isi pilihan dropdown matkul
+        isiPilihanMatkul(dataMatkul);
     } catch (err) {
         state.status = "error";
-        // Bedain error offline (TypeError) dengan pesan dari server
+        // Bedakan error offline (TypeError) dengan pesan dari server
         state.error = err instanceof TypeError
             ? "Tidak dapat terhubung ke server (offline)"
             : err.message;
@@ -235,7 +266,7 @@ tombolFilter.forEach(function (tombol) {
 });
 
 
-// No. 3 : Tandai selesai (PATCH) & Hapus (DELETE) via Event Delegation
+// No. 3 & 6: Tandai selesai (PATCH) & Hapus (DELETE) via Event Delegation dengan Error Handling Tahan Banting
 
 // ubah status jadi selesai (PATCH /api/tugas/:id menggunakan helper api())
 listTugas.addEventListener("change", async function (event) {
@@ -246,7 +277,7 @@ listTugas.addEventListener("change", async function (event) {
         const id = Number(kartu.dataset.id);
         const statusSelesai = checkbox.checked;
 
-        // nonaktifkan sementara checkbox biar enggak diklik berkali-kali saat proses
+        // nonaktifkan sementara checkbox biar tidak diklik berkali-kali saat proses
         checkbox.disabled = true;
 
         try {
@@ -271,6 +302,7 @@ listTugas.addEventListener("change", async function (event) {
             alert(`Gagal memperbarui tugas: ${err.message}`);
             // kembalikan posisi centang jika server gagal
             checkbox.checked = !statusSelesai;
+        } finally {
             checkbox.disabled = false;
         }
     }
@@ -301,6 +333,7 @@ listTugas.addEventListener("click", async function (event) {
             render();
         } catch (err) {
             alert(`Gagal menghapus tugas: ${err.message}`);
+        } finally {
             tombolHapus.disabled = false;
             tombolHapus.textContent = "hapus";
         }

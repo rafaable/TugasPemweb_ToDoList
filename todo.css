@@ -88,6 +88,22 @@ body {
     border-color: #8bbbe8;
 }
 
+.add-task select {
+    height: 35px;
+    padding: 0 10px;
+    color: #002d47;
+    border: 2px solid #bae5fd;
+    outline: none;
+    border-radius: 5px;
+    background-color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.add-task select:focus {
+    border-color: #8bbbe8;
+}
+
 .add-task button[type="submit"] {
     height: 35px;
     width: 50px;
