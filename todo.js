@@ -124,11 +124,36 @@ function render() {
     }
 }
 
-// Nomor 2: Tambah Tugas Baru via POST /api/tugas
+// ==========================================
+// No. 4: Helper api() pembungkus fetch
+// Mengecek res.ok dan melempar Error berisi pesan server
+// ==========================================
+async function api(url, options = {}) {
+    const res = await fetch(url, options);
+
+    // Jika response tidak ok (4xx / 5xx)
+    if (!res.ok) {
+        // Coba ambil pesan error dari body JSON server jika ada
+        const body = await res.json().catch(() => ({}));
+        const pesan = body.error || `HTTP ${res.status}`;
+        const err = new Error(pesan);
+        err.status = res.status;
+        throw err;
+    }
+
+    // Untuk response 204 (No Content, misal DELETE), jangan jalankan res.json()
+    if (res.status === 204) {
+        return null;
+    }
+
+    return await res.json();
+}
+
+// Nomor 2: Tambah Tugas Baru via POST /api/tugas (menggunakan helper api())
 formTugas.addEventListener("submit", async function (event) {
     event.preventDefault();
 
-    // 1. Siapkan objek data (gunakan nama 'judul' dan 'deadline' sesuai Mock API)
+    // 1. Siapkan objek data
     const tugasBaru = {
         judul: inputTeks.value.trim(),
         deadline: inputTanggal.value,
@@ -142,8 +167,8 @@ formTugas.addEventListener("submit", async function (event) {
     pesanForm.textContent = "";
 
     try {
-        // 3. Request POST dengan method, header Content-Type, dan JSON.stringify(body)
-        const res = await fetch("/api/tugas", {
+        // 3. Request POST menggunakan helper api()
+        const dataBaru = await api("/api/tugas", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -151,48 +176,32 @@ formTugas.addEventListener("submit", async function (event) {
             body: JSON.stringify(tugasBaru)
         });
 
-        const body = await res.json();
-
-        // 4. Jika res.ok (status 201 Created)
-        if (res.ok) {
-            state.data.push(body); // tambahkan tugas baru yang dikembalikan server ke state
-            render();              // render ulang tampilan
-            formTugas.reset();     // kosongkan form input
-        } else {
-            // Jika server menolak (status 400, misal judul < 3 huruf atau tanggal kosong)
-            pesanForm.textContent = body.error || "Gagal menambah tugas";
-            pesanForm.hidden = false;
-        }
+        // 4. Jika sukses (status 201 Created)
+        state.data.push(dataBaru); // tambahkan tugas baru ke state
+        render();                  // render ulang tampilan
+        formTugas.reset();         // kosongkan form input
     } catch (err) {
-        // Jika ada masalah koneksi / offline
+        // Tangani pesan error dari server (400) atau jika offline
         pesanForm.textContent = err instanceof TypeError
             ? "Gagal mengirim: Tidak dapat terhubung ke server (offline)"
             : err.message;
         pesanForm.hidden = false;
     } finally {
-        // 5. Apa pun hasilnya (sukses/gagal), aktifkan tombol kembali
+        // 5. Kembalikan tombol ke kondisi semula
         tombolAdd.disabled = false;
         tombolAdd.textContent = "+ add";
     }
 });
 
 
-// Soal 1: fungsi ambil data dari server pakai fetch()
+// Soal 1: fungsi ambil data dari server (menggunakan helper api())
 async function ambilTugas() {
     state.status = "loading";
     state.error = null;
     render();
 
     try {
-        const res = await fetch("/api/tugas");
-
-        // fetch nggak otomatis lempar error di 404/500, wajib cek res.ok
-        if (!res.ok) {
-            const body = await res.json().catch(() => ({}));
-            throw new Error(body.error || `HTTP ${res.status}`);
-        }
-
-        const data = await res.json();
+        const data = await api("/api/tugas");
         state.status = "success";
         state.data = data;
     } catch (err) {
@@ -228,7 +237,7 @@ tombolFilter.forEach(function (tombol) {
 
 // No. 3 : Tandai selesai (PATCH) & Hapus (DELETE) via Event Delegation
 
-// ubah status jadi selesai (PATCH /api/tugas/:id)
+// ubah status jadi selesai (PATCH /api/tugas/:id menggunakan helper api())
 listTugas.addEventListener("change", async function (event) {
     // pemicu change adalah input checkbox
     if (event.target.type === "checkbox") {
@@ -241,21 +250,13 @@ listTugas.addEventListener("change", async function (event) {
         checkbox.disabled = true;
 
         try {
-            const res = await fetch(`/api/tugas/${id}`, {
+            const tugasUpdated = await api(`/api/tugas/${id}`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({ selesai: statusSelesai })
             });
-
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error || `HTTP ${res.status}`);
-            }
-
-            // baca data yang sudah diperbarui dari server
-            const tugasUpdated = await res.json();
 
             // perbarui data di state lokal 
             const tugasDiState = state.data.find(function (t) {
@@ -275,9 +276,8 @@ listTugas.addEventListener("change", async function (event) {
     }
 });
 
-// event delegation untuk hapus tugas (DELETE /api/tugas/:id)
+// event delegation untuk hapus tugas (DELETE /api/tugas/:id menggunakan helper api())
 listTugas.addEventListener("click", async function (event) {
-
     // Pastikan yang diklik adalah tombol hapus
     if (event.target.classList.contains("tombol-hapus")) {
         const tombolHapus = event.target;
@@ -287,23 +287,18 @@ listTugas.addEventListener("click", async function (event) {
         // Nonaktifkan tombol hapus selama proses pengiriman
         tombolHapus.disabled = true;
         tombolHapus.textContent = "...";
+
         try {
-            const res = await fetch(`/api/tugas/${id}`, {
+            // DELETE merespons 204 No Content, helper api() mengembalikan null tanpa error
+            await api(`/api/tugas/${id}`, {
                 method: "DELETE"
             });
 
-            // DELETE merespons 204 No Content, TIDAK BOLEH panggil res.json()
-            if (res.status === 204 || res.ok) {
-
-                // Hapus tugas dari array state.data
-                state.data = state.data.filter(function (t) {
-                    return t.id !== id;
-                });
-                render();
-            } else {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error || `HTTP ${res.status}`);
-            }
+            // Hapus tugas dari array state.data
+            state.data = state.data.filter(function (t) {
+                return t.id !== id;
+            });
+            render();
         } catch (err) {
             alert(`Gagal menghapus tugas: ${err.message}`);
             tombolHapus.disabled = false;
