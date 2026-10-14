@@ -225,5 +225,92 @@ tombolFilter.forEach(function (tombol) {
     });
 });
 
+
+// No. 3 : Tandai selesai (PATCH) & Hapus (DELETE) via Event Delegation
+
+// ubah status jadi selesai (PATCH /api/tugas/:id)
+listTugas.addEventListener("change", async function (event) {
+    // pemicu change adalah input checkbox
+    if (event.target.type === "checkbox") {
+        const checkbox = event.target;
+        const kartu = checkbox.closest(".card-tugas");
+        const id = Number(kartu.dataset.id);
+        const statusSelesai = checkbox.checked;
+
+        // nonaktifkan sementara checkbox biar enggak diklik berkali-kali saat proses
+        checkbox.disabled = true;
+
+        try {
+            const res = await fetch(`/api/tugas/${id}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ selesai: statusSelesai })
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || `HTTP ${res.status}`);
+            }
+
+            // baca data yang sudah diperbarui dari server
+            const tugasUpdated = await res.json();
+
+            // perbarui data di state lokal 
+            const tugasDiState = state.data.find(function (t) {
+                return t.id === id;
+            });
+            if (tugasDiState) {
+                tugasDiState.selesai = tugasUpdated.selesai;
+            }
+
+            render();
+        } catch (err) {
+            alert(`Gagal memperbarui tugas: ${err.message}`);
+            // kembalikan posisi centang jika server gagal
+            checkbox.checked = !statusSelesai;
+            checkbox.disabled = false;
+        }
+    }
+});
+
+// event delegation untuk hapus tugas (DELETE /api/tugas/:id)
+listTugas.addEventListener("click", async function (event) {
+
+    // Pastikan yang diklik adalah tombol hapus
+    if (event.target.classList.contains("tombol-hapus")) {
+        const tombolHapus = event.target;
+        const kartu = tombolHapus.closest(".card-tugas");
+        const id = Number(kartu.dataset.id);
+
+        // Nonaktifkan tombol hapus selama proses pengiriman
+        tombolHapus.disabled = true;
+        tombolHapus.textContent = "...";
+        try {
+            const res = await fetch(`/api/tugas/${id}`, {
+                method: "DELETE"
+            });
+
+            // DELETE merespons 204 No Content, TIDAK BOLEH panggil res.json()
+            if (res.status === 204 || res.ok) {
+
+                // Hapus tugas dari array state.data
+                state.data = state.data.filter(function (t) {
+                    return t.id !== id;
+                });
+                render();
+            } else {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || `HTTP ${res.status}`);
+            }
+        } catch (err) {
+            alert(`Gagal menghapus tugas: ${err.message}`);
+            tombolHapus.disabled = false;
+            tombolHapus.textContent = "hapus";
+        }
+    }
+});
+
 // Panggil fungsi pengambilan data pertama kali saat halaman dibuka
 ambilTugas();
